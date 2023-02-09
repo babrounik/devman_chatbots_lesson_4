@@ -1,7 +1,11 @@
+import redis
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
                           ConversationHandler)
 
+from unzip_questions import load_questions
+
+from functools import partial
 import random
 import logging
 import os
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
 reply_keyboard = [["Новый вопрос", "Показать текущий вопрос"],
-                  ["Показать ответ", "Закончить"]]
+                  ["Показать ответ", "/cancel"]]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 
@@ -35,34 +39,38 @@ def get_new_question_and_answer(_questions):
 
 def start(bot, update):
     update.message.reply_text(
-        fr'Hi {update.effective_user.mention_markdown_v2()}\!',
+        fr'Hi {update.message.from_user.first_name}!',
         reply_markup=markup)
 
     return CHOOSING
 
 
-def handle_new_question_request(bot, update, _redis_conn, _questions):
-    new_question, answer = get_new_question_and_answer(_questions)
-    set_value_to_redis(_redis_conn, f"{update.message.from_user.id} question", new_question)
-    set_value_to_redis(_redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
+def handle_new_question_request(bot, update, redis_conn, questions):
+    print("handle_new_question_request")
+    new_question, answer = get_new_question_and_answer(questions)
+    set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
+    set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
     update.message.reply_text(new_question)
     return TYPING_REPLY
 
 
-def show_question(bot, update, _redis_conn):
-    question = get_value_from_redis(_redis_conn, f"{update.message.from_user.id} question")
+def show_question(bot, update, redis_conn):
+    print("show_question")
+    question = get_value_from_redis(redis_conn, f"{update.message.from_user.id} question")
     update.message.reply_text(question)
     return TYPING_REPLY
 
 
-def show_answer(bot, update, _redis_conn):
-    question = get_value_from_redis(_redis_conn, f"{update.message.from_user.id} answer")
+def show_answer(bot, update, redis_conn):
+    print("show_answer")
+    question = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     update.message.reply_text(question)
     return TYPING_REPLY
 
 
-def handle_solution_attempt(bot, update, _redis_conn):
-    answer = get_value_from_redis(_redis_conn, f"{update.message.from_user.id} answer")
+def handle_solution_attempt(bot, update, redis_conn):
+    print("handle_solution_attempt")
+    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     if update.message.text == answer:
         text_response = "Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»."
     else:
@@ -84,8 +92,21 @@ def error(bot, update, error):
 def main():
     load_dotenv(Path.cwd() / ".env")
     tg_api_token = os.environ["TG_API_KEY"]
+
+    questions_files = Path.cwd() / "quiz-questions"
+    questions = load_questions(questions_files.glob("*.txt"))
+
+    redis_host = os.environ["REDIS_HOST"]
+    redis_port = int(os.environ["REDIS_PORT"])
+    redis_password = os.environ["REDIS_PASSWORD"]
+
     updater = Updater(tg_api_token)
     dp = updater.dispatcher
+
+    redis_conn = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        password=redis_password)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start),
@@ -93,16 +114,17 @@ def main():
 
         states={
             CHOOSING: [
-                RegexHandler('^(Новый вопрос)$', handle_new_question_request),
-                RegexHandler('^(Показать текущий вопрос)$', show_question),
-                RegexHandler('^(Показать ответ)$', show_answer),
-                MessageHandler(Filters.text, handle_solution_attempt)
+                RegexHandler('^(Новый вопрос)$', partial(handle_new_question_request,
+                                                         redis_conn=redis_conn,
+                                                         questions=questions)),
+                RegexHandler('^(Показать текущий вопрос)$', partial(show_question, redis_conn=redis_conn, )),
+                RegexHandler('^(Показать ответ)$', partial(show_answer, redis_conn=redis_conn, )),
             ],
 
-            TYPING_REPLY: [MessageHandler(Filters.text, handle_solution_attempt)],
+            TYPING_REPLY: [MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn, ))],
         },
 
-        fallbacks=[RegexHandler('^Закончить$', done, pass_user_data=True)]
+        fallbacks=[CommandHandler('cancel', done)]
     )
 
     dp.add_handler(conv_handler)
@@ -110,5 +132,6 @@ def main():
     updater.start_polling()
     updater.idle()
 
-    if __name__ == '__main__':
-        main()
+
+if __name__ == '__main__':
+    main()
