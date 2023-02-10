@@ -41,8 +41,7 @@ def get_new_question_and_answer(_questions):
 
 def start(bot, update):
     update.message.reply_text(
-        fr'Hi {update.message.from_user.first_name}!',
-        reply_markup=markup)
+        fr'Hi {update.message.from_user.first_name}!', reply_markup=markup)
 
     return CHOOSING
 
@@ -52,7 +51,7 @@ def handle_new_question_request(bot, update, redis_conn, questions):
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
     update.message.reply_text(new_question)
-    return TYPING_REPLY
+    return CHOOSING
 
 
 def show_question(bot, update, redis_conn):
@@ -61,7 +60,7 @@ def show_question(bot, update, redis_conn):
         update.message.reply_text("Вопрос ещё не задан.")
     else:
         update.message.reply_text(question)
-    return TYPING_REPLY
+    return CHOOSING
 
 
 def show_answer(bot, update, redis_conn):
@@ -70,8 +69,7 @@ def show_answer(bot, update, redis_conn):
         update.message.reply_text("Вопрос ещё не задан.")
     else:
         update.message.reply_text(answer)
-    update.message.reply_text(answer)
-    return TYPING_REPLY
+    return CHOOSING
 
 
 def handle_solution_attempt(bot, update, redis_conn):
@@ -126,9 +124,8 @@ def main():
                                                          questions=questions)),
                 RegexHandler('^(Показать текущий вопрос)$', partial(show_question, redis_conn=redis_conn, )),
                 RegexHandler('^(Показать ответ)$', partial(show_answer, redis_conn=redis_conn, )),
+                MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn, ))
             ],
-
-            TYPING_REPLY: [MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn, ))],
         },
 
         fallbacks=[CommandHandler('cancel', partial(done, redis_conn=redis_conn, ))]
