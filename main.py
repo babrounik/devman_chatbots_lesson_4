@@ -29,7 +29,9 @@ def set_value_to_redis(redis_conn, _key, _value) -> None:
 
 
 def get_value_from_redis(redis_conn, _key) -> str:
-    return redis_conn.get(_key).decode("utf-8")
+    value = redis_conn.get(_key)
+    if value:
+        return value.decode("utf-8")
 
 
 def get_new_question_and_answer(_questions):
@@ -46,7 +48,6 @@ def start(bot, update):
 
 
 def handle_new_question_request(bot, update, redis_conn, questions):
-    print("handle_new_question_request")
     new_question, answer = get_new_question_and_answer(questions)
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
@@ -55,21 +56,25 @@ def handle_new_question_request(bot, update, redis_conn, questions):
 
 
 def show_question(bot, update, redis_conn):
-    print("show_question")
     question = get_value_from_redis(redis_conn, f"{update.message.from_user.id} question")
-    update.message.reply_text(question)
+    if not question:
+        update.message.reply_text("Вопрос ещё не задан.")
+    else:
+        update.message.reply_text(question)
     return TYPING_REPLY
 
 
 def show_answer(bot, update, redis_conn):
-    print("show_answer")
-    question = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
-    update.message.reply_text(question)
+    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
+    if not answer:
+        update.message.reply_text("Вопрос ещё не задан.")
+    else:
+        update.message.reply_text(answer)
+    update.message.reply_text(answer)
     return TYPING_REPLY
 
 
 def handle_solution_attempt(bot, update, redis_conn):
-    print("handle_solution_attempt")
     answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     if update.message.text == answer:
         text_response = "Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»."
@@ -79,8 +84,10 @@ def handle_solution_attempt(bot, update, redis_conn):
     return CHOOSING
 
 
-def done(bot, update):
+def done(bot, update, redis_conn):
     update.message.reply_text('Пока! Если захочешь начать снова, просто напиши "старт".')
+    redis_conn.delete(f"{update.message.from_user.id} question")
+    redis_conn.delete(f"{update.message.from_user.id} answer")
     return ConversationHandler.END
 
 
@@ -124,7 +131,7 @@ def main():
             TYPING_REPLY: [MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn, ))],
         },
 
-        fallbacks=[CommandHandler('cancel', done)]
+        fallbacks=[CommandHandler('cancel', partial(done, redis_conn=redis_conn, ))]
     )
 
     dp.add_handler(conv_handler)
