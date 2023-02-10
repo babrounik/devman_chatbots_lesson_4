@@ -17,10 +17,10 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
+CHOOSING = 1
 
 reply_keyboard = [["Новый вопрос", "Показать текущий вопрос"],
-                  ["Показать ответ", "/cancel"]]
+                  ["Показать ответ", 'Сдаться', "/cancel"]]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 
@@ -47,6 +47,19 @@ def start(bot, update):
 
 
 def handle_new_question_request(bot, update, redis_conn, questions):
+    new_question, answer = get_new_question_and_answer(questions)
+    set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
+    set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
+    update.message.reply_text(new_question)
+    return CHOOSING
+
+
+def resign(bot, update, redis_conn, questions):
+    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
+    if not answer:
+        update.message.reply_text("Вопрос ещё не задан.")
+    else:
+        update.message.reply_text(answer)
     new_question, answer = get_new_question_and_answer(questions)
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
     set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
@@ -122,13 +135,14 @@ def main():
                 RegexHandler('^(Новый вопрос)$', partial(handle_new_question_request,
                                                          redis_conn=redis_conn,
                                                          questions=questions)),
-                RegexHandler('^(Показать текущий вопрос)$', partial(show_question, redis_conn=redis_conn, )),
-                RegexHandler('^(Показать ответ)$', partial(show_answer, redis_conn=redis_conn, )),
-                MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn, ))
+                RegexHandler('^(Показать текущий вопрос)$', partial(show_question, redis_conn=redis_conn)),
+                RegexHandler('^(Показать ответ)$', partial(show_answer, redis_conn=redis_conn)),
+                RegexHandler('^(Сдаться)$', partial(resign, redis_conn=redis_conn, questions=questions)),
+                MessageHandler(Filters.text, partial(handle_solution_attempt, redis_conn=redis_conn))
             ],
         },
 
-        fallbacks=[CommandHandler('cancel', partial(done, redis_conn=redis_conn, ))]
+        fallbacks=[CommandHandler('cancel', partial(done, redis_conn=redis_conn))]
     )
 
     dp.add_handler(conv_handler)
