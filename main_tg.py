@@ -1,16 +1,14 @@
+import logging
+import os
+from functools import partial
+from dotenv import load_dotenv
+from pathlib import Path
+
+import quize_lib as ql
 import redis
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
                           ConversationHandler)
-
-from unzip_questions import load_questions
-
-from functools import partial
-import random
-import logging
-import os
-from dotenv import load_dotenv
-from pathlib import Path
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -24,51 +22,35 @@ reply_keyboard = [["Новый вопрос", "Показать текущий �
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 
-def set_value_to_redis(redis_conn, _key, _value) -> None:
-    redis_conn.set(_key, _value)
-
-
-def get_value_from_redis(redis_conn, _key) -> str:
-    value = redis_conn.get(_key)
-    if value:
-        return value.decode("utf-8")
-
-
-def get_new_question_and_answer(_questions):
-    _question, _answer = random.choice(list(_questions.items()))
-    return _question, _answer
-
-
 def start(bot, update):
     update.message.reply_text(
         fr'Hi {update.message.from_user.first_name}!', reply_markup=markup)
-
     return CHOOSING
 
 
 def handle_new_question_request(bot, update, redis_conn, questions):
-    new_question, answer = get_new_question_and_answer(questions)
-    set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
-    set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
+    new_question, answer = ql.get_new_question_and_answer(questions)
+    ql.set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
+    ql.set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
     update.message.reply_text(new_question)
     return CHOOSING
 
 
 def resign(bot, update, redis_conn, questions):
-    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
+    answer = ql.get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     if not answer:
         update.message.reply_text("Вопрос ещё не задан.")
     else:
         update.message.reply_text(answer)
-    new_question, answer = get_new_question_and_answer(questions)
-    set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
-    set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
+    new_question, answer = ql.get_new_question_and_answer(questions)
+    ql.set_value_to_redis(redis_conn, f"{update.message.from_user.id} question", new_question)
+    ql.set_value_to_redis(redis_conn, f"{update.message.from_user.id} answer", answer.replace('"', ''))
     update.message.reply_text(new_question)
     return CHOOSING
 
 
 def show_question(bot, update, redis_conn):
-    question = get_value_from_redis(redis_conn, f"{update.message.from_user.id} question")
+    question = ql.get_value_from_redis(redis_conn, f"{update.message.from_user.id} question")
     if not question:
         update.message.reply_text("Вопрос ещё не задан.")
     else:
@@ -77,7 +59,7 @@ def show_question(bot, update, redis_conn):
 
 
 def show_answer(bot, update, redis_conn):
-    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
+    answer = ql.get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     if not answer:
         update.message.reply_text("Вопрос ещё не задан.")
     else:
@@ -86,7 +68,7 @@ def show_answer(bot, update, redis_conn):
 
 
 def handle_solution_attempt(bot, update, redis_conn):
-    answer = get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
+    answer = ql.get_value_from_redis(redis_conn, f"{update.message.from_user.id} answer")
     if update.message.text == answer:
         text_response = "Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»."
     else:
@@ -112,7 +94,7 @@ def main():
     tg_api_token = os.environ["TG_API_KEY"]
 
     questions_files = Path.cwd() / "quiz-questions"
-    questions = load_questions(questions_files.glob("*.txt"))
+    questions = ql.load_questions(questions_files.glob("*.txt"))
 
     redis_host = os.environ["REDIS_HOST"]
     redis_port = int(os.environ["REDIS_PORT"])

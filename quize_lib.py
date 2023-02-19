@@ -1,3 +1,21 @@
+import random
+
+
+def set_value_to_redis(redis_conn, _key, _value) -> None:
+    redis_conn.set(_key, _value)
+
+
+def get_value_from_redis(redis_conn, _key) -> str:
+    value = redis_conn.get(_key)
+    if value:
+        return value.decode("utf-8")
+
+
+def get_new_question_and_answer(_questions):
+    _question, _answer = random.choice(list(_questions.items()))
+    return _question, _answer
+
+
 def load_questions(questions_paths):
     questions = {}
 
