@@ -13,23 +13,31 @@ cd devman_chatbots_lesson_4
 
 ### Python interpreter
 
+
+
 ```
-brew update & brew install pyenv
-brew update && brew upgrade pyenv
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc
-echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc
-echo 'export PATH="$PYENV_ROOT/shims:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-pyenv install 3.9.11
-pyenv rehash
-pyenv local 3.9.11
+sudo apt update -y
+sudo apt install build-essential
+sudo apt install libssl-dev libffi-dev libncurses5-dev zlib1g zlib1g-dev libreadline-dev libbz2-dev libsqlite3-dev lzma make gcc
+curl https://pyenv.run | bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> $HOME/.bashrc
+echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> $HOME/.bashrc
+echo 'eval "$(pyenv init -)"' >> $HOME/.bashrc
+echo 'eval "$(pyenv virtualenv-init -)"' >> $HOME/.bashrc
+source $HOME/.bashrc
+pyenv install 3.10.10
+# this operation can take a few minutes without any verbose log
+pyenv global 3.10.10
 ```
 
 ### Environment
 
 ```
+cd /opt
+git clone git@github.com:babrounik/devman_chatbots_lesson_4.git
+cd /opt/devman_chatbots_lesson_4
 pip3 install pipenv
-pipenv shell $(which python3)
+pipenv shell --python $(which python3)
 ```
 
 ### Requirements
