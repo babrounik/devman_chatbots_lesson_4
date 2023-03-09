@@ -127,7 +127,7 @@ def handle_solution_attempt(_vk, _event, _redis_conn):
 
 
 def main():
-    """ Пример создания клавиатуры для отправки ботом """
+    logger.info("Script started.")
     env_file = Path.cwd() / ".env"
     load_dotenv(env_file)
 

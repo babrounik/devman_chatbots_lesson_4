@@ -90,6 +90,7 @@ def error(bot, update, error):
 
 
 def main():
+    logger.info("Script started.")
     load_dotenv(Path.cwd() / ".env")
     tg_api_token = os.environ["TG_API_KEY"]
 
