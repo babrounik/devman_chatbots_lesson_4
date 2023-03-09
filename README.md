@@ -59,11 +59,56 @@ echo 'export REDIS_PORT=INSERT_YOUR_VALUE' >> ./.env
 source ~/.bashrc
 ```
 
+### Processes demonization
+
+```
+cd /opt/devman_chatbots_lesson_4
+pipenv shell
+which python3.9
+# copy path 
+/root/.local/share/virtualenvs/devman_chatbots_lesson_4-kfTXzYwK/bin/python3.9
+cd /etc/systemd/system
+touch tg_bot.service
+touch vk_bot.service
+
+vim tg_bot.service
+i
+[Service]
+ExecStart=YOU_PYTHON_PATH PY_FILE_PATH
+Restart=always
+Environment=TG_API_KEY=YOUR_TG_API_KEY
+Environment=REDIS_HOST=YOUR_REDIS_HOST
+Environment=REDIS_PASSWORD=YOUR_REDIS_PASSWORD
+Environment=REDIS_PORT=YOUR_REDIS_PORT
+
+[Install]
+WantedBy=multi-user.target
+:wq
+
+systemctl enable tg_bot.service
+
+vim tg_bot.service
+i
+[Service]
+ExecStart=YOU_PYTHON_PATH PY_FILE_PATH
+Restart=always
+Environment=VK_COM=YOUR_VK_COM_API_KEY
+Environment=REDIS_HOST=YOUR_REDIS_HOST
+Environment=REDIS_PASSWORD=YOUR_REDIS_PASSWORD
+Environment=REDIS_PORT=YOUR_REDIS_PORT
+
+[Install]
+WantedBy=multi-user.target
+:wq
+
+systemctl enable vk_bot.service
+```
+
 ### Run
 
 ```
-python3 main_tg.py
-python3 main_vk.py
+systemctl start tg_bot.service
+systemctl start vk_bot.service
 ```
 
 ## Example

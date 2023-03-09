@@ -5,7 +5,6 @@ from vk_api.utils import get_random_id
 
 import logging
 import os
-from dotenv import load_dotenv
 from pathlib import Path
 
 import quize_lib as ql
@@ -128,8 +127,6 @@ def handle_solution_attempt(_vk, _event, _redis_conn):
 
 def main():
     logger.info("Script started.")
-    env_file = Path.cwd() / ".env"
-    load_dotenv(env_file)
 
     questions_files = Path.cwd() / "quiz-questions"
     questions = ql.load_questions(questions_files.glob("*.txt"))
