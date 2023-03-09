@@ -1,7 +1,7 @@
 import logging
 import os
 from functools import partial
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from pathlib import Path
 
 import quize_lib as ql
@@ -91,7 +91,7 @@ def error(bot, update, error):
 
 def main():
     logger.info("Script started.")
-    load_dotenv(Path.cwd() / ".env")
+    # load_dotenv(Path.cwd() / ".env")
     tg_api_token = os.environ["TG_API_KEY"]
 
     questions_files = Path.cwd() / "quiz-questions"
